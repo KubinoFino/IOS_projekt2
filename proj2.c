@@ -1,34 +1,46 @@
 #include "proj2.h"
 
-int ArgVal(int argc, char *argv[]){
+void ArgVal(int argc, char *argv[]){
+    
+    isAllDigits(argc, *argv);
+    
     if(argc < 5){
-        return NOT_ENOUGH_ARGUMENTS;
+        ErrorMessage(NOT_ENOUGH_ARGUMENTS);
     }
 
     if (argc > 5){
-        return TOO_MANY_ARGUMENTS;
+        ErrorMessage(TOO_MANY_ARGUMENTS);
     }
 
     if(atoi(argv[1]) < 1){
-        return FALSE_VALUE;
+        ErrorMessage(FALSE_VALUE);
     }
 
     if(atoi(argv[2]) < 1){
-        return FALSE_VALUE;
+        ErrorMessage(FALSE_VALUE);
     }
 
     if(atoi(argv[3]) < 0 || atoi(argv[3]) > 10000){
-        return FALSE_VALUE;
+        ErrorMessage(FALSE_VALUE);
     }
 
     if(atoi(argv[4]) < 0 || atoi(argv[4]) > 100){
-        return FALSE_VALUE;
+        ErrorMessage(FALSE_VALUE);
     }
 
     if(atoi(argv[5]) < 0 || atoi(argv[5]) > 10000){
-        return FALSE_VALUE;
+        ErrorMessage(FALSE_VALUE);
     }
+}
 
+void isAllDigits(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        for (int j = 0; argv[i][j]; j++) {
+            if (!isdigit(argv[i][j])) {
+                ErrorMessage(FALSE_VALUE);
+            }
+        }
+    }
 }
 
 void ErrorMessage(int errorCode){
@@ -73,65 +85,96 @@ void ErrorMessage(int errorCode){
 }
 
 void ExitWithError(ErrorCode){
-    //cleanup();
+    ClearEverything();
     ErrorMessage(ErrorCode);
     exit(1);
 }
 
 void initSemaphores(){
-    sem_unlink("xkopac07.writing");
-    sem_unlink("xkopac07.oxygenQueue");
-    sem_unlink("xkopac07.hydrogenQueue");
-    sem_unlink("xkopac07.hydrogenStop");
-    sem_unlink("xkopac07.moleculeStarted");
-    sem_unlink("xkopac07.moleculeFinished");
+    sem_unlink("/xkacka00.writer");
+    sem_unlink("/xkacka00.letter_line");
+    sem_unlink("/xkacka00.package_line");
+    sem_unlink("/xkacka00.finance_line");
+    sem_unlink("/xkacka00.waiting_customer");
+    sem_unlink("/xkacka00.worker_available");
+    sem_unlink("/xkacka00.post_open");
 
-    writer = sem_open("writer", O_CREAT | O_EXCL, 0666, 1);
-    letter_queue = sem_open("letter_queue", O_CREAT | O_EXCL, 0666, 0);
-    package_queue = sem_open("package_queue", O_CREAT | O_EXCL, 0666, 0);
-    finance_queue = sem_open("finance_queue", O_CREAT | O_EXCL, 0666, 2);
-    customer = sem_open("customer", O_CREAT | O_EXCL, 0666, 1);
-    worker_available = sem_open("worker_available", O_CREAT | O_EXCL, 0666, 0);
-    post_open = sem_open("post_open", O_CREAT | O_EXCL, 0666, 0);
+    writer = sem_open("/xkacka00.writer", O_CREAT | O_EXCL, 0666, 1);
+    letter_line = sem_open("/xkacka00.letter_line", O_CREAT | O_EXCL, 0666, 0);
+    package_line = sem_open("/xkacka00.package_line", O_CREAT | O_EXCL, 0666, 0);
+    finance_line = sem_open("/xkacka00.finance_line", O_CREAT | O_EXCL, 0666, 0);
+    waiting_customer = sem_open("/xkacka00.waiting_customer", O_CREAT | O_EXCL, 0666, 1);
+    worker_available = sem_open("/xkacka00.worker_available", O_CREAT | O_EXCL, 0666, 0);
+    post_open = sem_open("/xkacka00.post_open", O_CREAT | O_EXCL, 0666, 0);
 
-    if (writer == SEM_FAILED || letter_queue == SEM_FAILED || package_queue == SEM_FAILED || finance_queue == SEM_FAILED || customer == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
+    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || waiting_customer == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
         ExitWithError(CREATING_SEMAPHORE_FAILED);
     }
 }
 
-initMemo(){
-    
+void initMemo(){
+    shared_memo = shm_open("/xkacka00.memo", O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR );
+    if (shared_memo == -1){
+        ExitWithError(CREATING_SHARED_MEMO_FAILED);
+    }
+    ftruncate(shared_memo, sizeof(Memo_t));
+    Memo = mmap(NULL, sizeof(Memo_t), PROT_READ | PROT_WRITE, MAP_SHARED, shared_memo, 0);
+    if (Memo == MAP_FAILED){
+        ExitWithError(CREATING_SHARED_MEMO_FAILED);
+    }
+
+    // Memo init
+    Memo->customer_count = customer_quantity;
+    Memo->finance_queue_count = 0;
+    Memo->letter_queue_count = 0;
+    Memo->output_lines = 0;
+    Memo->package_queue_count = 0;
+    Memo->worker_count = workers_quantity;
+}
+
+void OpenFile(){
+    output = fopen("proj2.out", "w+");
+    if(output == NULL || ferror(output)) {
+        ErrorMessage(FILE_OPENING_FAILED);
+    }
+    setbuf(output, NULL);
 }
 
 void ClearEverything(){
     sem_close(writer);
-    sem_close(letter_queue);
-    sem_close(finance_queue);
-    sem_close(package_queue);
-    sem_close(customer);
+    sem_close(letter_line);
+    sem_close(finance_line);
+    sem_close(package_line);
+    sem_close(waiting_customer);
     sem_close(worker_available);
     sem_close(post_open);
 
-    sem_unlink("writer");
-    sem_unlink("letter_queue");
-    sem_unlink("package_queue");
-    sem_unlink("finance_queue");
-    sem_unlink("customer");
-    sem_unlink("worker_available");
-    sem_unlink("post_open");
+    sem_unlink("/xkacka00.writer");
+    sem_unlink("/xkacka00.letter_line");
+    sem_unlink("/xkacka00.package_line");
+    sem_unlink("/xkacka00.finance_line");
+    sem_unlink("/xkacka00.waiting_customer");
+    sem_unlink("/xkacka00.worker_available");
+    sem_unlink("/xkacka00.post_open");
 
+    munmap(shared_memo, sizeof(int));
+    shm_unlink("/xkacka00.memo");
+
+    close(Memo);
+    fclose(output);
 }
-
-
 
 int main(int argc, char *argv[]){
 
+    //validate arguments 
+    ArgVal(argc, *argv);
+
     //arguments 
-    int customer_quantity = atoi(argv[1]);
-    int workers_quantity = atoi(argv[2]);
-    int customer_wait_time = atoi(argv[3]);
-    int worker_break = atoi(argv[4]);
-    int post_open_time = atoi(argv[5]);
+    customer_quantity = atoi(argv[1]);
+    workers_quantity = atoi(argv[2]);
+    customer_wait_time = atoi(argv[3]);
+    worker_break = atoi(argv[4]);
+    post_open_time = atoi(argv[5]);
 
 
 

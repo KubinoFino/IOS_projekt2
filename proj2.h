@@ -30,12 +30,20 @@ enum Errors {
 
 // Semaphores 
 sem_t *writer;
-sem_t *letter_queue;
-sem_t *package_queue;
-sem_t *finance_queue;
-sem_t *customer;
+sem_t *letter_line;
+sem_t *package_line;
+sem_t *finance_line;
+sem_t *waiting_customer;
 sem_t *worker_available;
 sem_t *post_open;
+
+// arguments
+
+int customer_quantity;
+int workers_quantity;
+int customer_wait_time;
+int worker_break;
+int post_open_time;
 
 typedef struct Memo {
     int customer_count;
@@ -43,5 +51,12 @@ typedef struct Memo {
     int letter_queue_count;
     int package_queue_count;
     int finance_queue_count;
-    int output;
-};
+    int output_lines;
+} Memo_t ;
+
+FILE *output;
+
+Memo_t *Memo;
+int shared_memo;
+
+
