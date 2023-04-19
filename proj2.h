@@ -14,6 +14,8 @@
 #include <ctype.h>
 
 
+#define WORKER 'W'
+#define CUSTOMER 'C'
 // Errors
 enum Errors {
     ERROR = -1,
@@ -25,7 +27,8 @@ enum Errors {
     FILE_OPENING_FAILED,
     PROCESS_CREATION_FAILED,
     CREATING_SHARED_MEMO_FAILED,
-    CREATING_SEMAPHORE_FAILED
+    CREATING_SEMAPHORE_FAILED,
+    WRONG_RANDOM_NUMBER
 };
 
 // Semaphores 
@@ -33,7 +36,7 @@ sem_t *writer;
 sem_t *letter_line;
 sem_t *package_line;
 sem_t *finance_line;
-sem_t *waiting_customer;
+sem_t *waiting_customers;
 sem_t *worker_available;
 sem_t *post_open;
 
@@ -44,7 +47,6 @@ typedef struct person {
 } person_t;
 
 // arguments
-
 int customer_quantity;
 int workers_quantity;
 int customer_wait_time;
@@ -59,6 +61,9 @@ typedef struct Memo {
     int finance_queue_count;
     int output_lines;
 } Memo_t ;
+
+//postoffice open hours 
+bool office_open;
 
 FILE *output;
 

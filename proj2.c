@@ -30,7 +30,7 @@ void ArgVal(int argc, char *argv[]){
         ExitWithError(FALSE_VALUE);
     }
 
-    isAllDigits(argc, argv);
+    //isAllDigits(argc, argv);
 }
 
 void isAllDigits(int argc, char *argv[]) {
@@ -110,7 +110,7 @@ void initSemaphores(){
     worker_available = sem_open("/xkacka00.worker_available", O_CREAT | O_EXCL, 0666, 0);
     post_open = sem_open("/xkacka00.post_open", O_CREAT | O_EXCL, 0666, 0);
 
-    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || waiting_customer == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
+    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || waiting_customers == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
         ExitWithError(CREATING_SEMAPHORE_FAILED);
     }
 }
@@ -237,6 +237,7 @@ void createCustomer(person_t* person){
             sem_wait(writer);
             fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
             sem_post(writer);
+            return;
         default:
             ExitWithError(WRONG_RANDOM_NUMBER);
         }
@@ -254,25 +255,97 @@ void createCustomer(person_t* person){
 void createWorker(person_t* person){
     srand(time(NULL) ^ getpid());
 
-    int randomNumberWorker;
+    int randomNumberWorker = 0;
     sem_wait(writer);
     fprintf(output, "%d: U %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
 
-    if(letter_line != 0 && letter_line == 0 && letter_line == 0){
-        randomNumberWorker = 1;
-    }else if(letter_line == 0 && letter_line != 0 && letter_line == 0){
-        randomNumberWorker = 2;
-    }else if(letter_line != 0 && letter_line == 0 && letter_line == 0){
+    do {
+        if(letter_line != 0 && letter_line == 0 && letter_line == 0){
+            randomNumberWorker = 1;
+        }else if(letter_line == 0 && letter_line != 0 && letter_line == 0){
+            randomNumberWorker = 2;
+        }else if(letter_line == 0 && letter_line == 0 && letter_line != 0){
+            randomNumberWorker = 3;
+        }else if(letter_line != 0 && letter_line != 0 && letter_line == 0){
+            randomNumberWorker = (1 + rand() % (2 - 1 + 1));
+        }else if(letter_line != 0 && letter_line == 0 && letter_line != 0){
+            randomNumberWorker = (1 + rand() % (3 - 1 + 1));
+        }else if(letter_line == 0 && letter_line != 0 && letter_line != 0){
+            randomNumberWorker = (2 + rand() % (3 - 2 + 1));
+        }else if(letter_line != 0 && letter_line != 0 && letter_line != 0){
+            randomNumberWorker = ((rand() % 3) + 1);
+        }else {
+            sem_wait(writer);
+            fprintf(output, "%d: U %d: taking a break\n", ++Memo->output_lines, person->id);
+            sem_post(writer);
 
-    }
+            usleep(1000 * (rand() % worker_break));
+
+            sem_wait(writer);
+            fprintf(output, "%d: U %d: finished break\n", ++Memo->output_lines, person->id);
+            sem_post(writer);
+        }
+
+        if(randomNumberWorker != 0){
+            switch(randomNumberWorker){
+                case 1:
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: serving a service letter\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+
+                    sem_post(letter_line);
+
+                    usleep((rand() % (10 - 0 + 1)) + 0);
+
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+                    return;
+                case 2:
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: serving a service package\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+
+                    sem_post(package_line);
+
+                    usleep((rand() % (10 - 0 + 1)) + 0);
+
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+                    return;
+                case 3:
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: serving a service finance\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+
+                    sem_post(finance_line);
+
+                    usleep((rand() % (10 - 0 + 1)) + 0);
+
+                    sem_wait(writer);
+                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
+                    sem_post(writer);
+                    return;
+            }
+        }
+    
+    } while ((letter_line != 0 || letter_line != 0 || letter_line != 0) && office_open == true);
+
+    sem_wait(writer);
+    fprintf(output, "%d: U %d: going home\n", ++Memo->output_lines, person->id);
+    sem_post(writer);
+    return;
 }
 
 int main(int argc, char *argv[]){
-
     //validate arguments 
-    ArgVal(argc, argv);
+    //ArgVal(argc, argv);
 
+    if(argc == 0){
+        printf("skap");
+    }
     //arguments 
     customer_quantity = atoi(argv[1]);
     workers_quantity = atoi(argv[2]);
@@ -284,15 +357,16 @@ int main(int argc, char *argv[]){
 
     //person struct init
     person_t person;
-
+    
     initMemo();
     initSemaphores();
     OpenFile();
 
+    
     //making workers processes 
     for ( int workerID = 1; workerID <= workers_quantity; workerID++)
     {
-        person.type = "worker";
+        person.type = WORKER;
         person.id = workerID;
 
         //create subproces
@@ -309,7 +383,7 @@ int main(int argc, char *argv[]){
 
     for (int customerID = 1; customerID <= customer_quantity; customerID++)
     {
-        person.type = "customer";
+        person.type = CUSTOMER;
         person.id = customerID;
 
         //create process
@@ -319,7 +393,7 @@ int main(int argc, char *argv[]){
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (customer == 0){
-            createCustomer($person);
+            createCustomer(&person);
             return GOOD;
         }
     }
@@ -328,16 +402,15 @@ int main(int argc, char *argv[]){
     office_open = true; 
     usleep(random_time);
     office_open = false;
-
+    
+    while(wait(NULL) > 0)
+        continue;
+    
     sem_wait(writer);
     fprintf(output, "%d: closing\n", ++Memo->output_lines);
     sem_post(writer);
 
+    ClearEverything();
 
-
-
-    
-
-
-
+    exit(0);
 }
