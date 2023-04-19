@@ -2,35 +2,35 @@
 
 void ArgVal(int argc, char *argv[]){
     
-    isAllDigits(argc, *argv);
-    
     if(argc < 5){
-        ErrorMessage(NOT_ENOUGH_ARGUMENTS);
+        ExitWithError(NOT_ENOUGH_ARGUMENTS);
     }
 
     if (argc > 5){
-        ErrorMessage(TOO_MANY_ARGUMENTS);
+        ExitWithError(TOO_MANY_ARGUMENTS);
     }
 
     if(atoi(argv[1]) < 1){
-        ErrorMessage(FALSE_VALUE);
+        ExitWithError(FALSE_VALUE);
     }
 
     if(atoi(argv[2]) < 1){
-        ErrorMessage(FALSE_VALUE);
+        ExitWithError(FALSE_VALUE);
     }
 
     if(atoi(argv[3]) < 0 || atoi(argv[3]) > 10000){
-        ErrorMessage(FALSE_VALUE);
+        ExitWithError(FALSE_VALUE);
     }
 
     if(atoi(argv[4]) < 0 || atoi(argv[4]) > 100){
-        ErrorMessage(FALSE_VALUE);
+        ExitWithError(FALSE_VALUE);
     }
 
     if(atoi(argv[5]) < 0 || atoi(argv[5]) > 10000){
-        ErrorMessage(FALSE_VALUE);
+        ExitWithError(FALSE_VALUE);
     }
+
+    isAllDigits(argc, argv);
 }
 
 void isAllDigits(int argc, char *argv[]) {
@@ -84,7 +84,7 @@ void ErrorMessage(int errorCode){
     fprintf(stderr, "\n");
 }
 
-void ExitWithError(ErrorCode){
+void ExitWithError(int ErrorCode){
     ClearEverything();
     ErrorMessage(ErrorCode);
     exit(1);
@@ -157,17 +157,21 @@ void ClearEverything(){
     sem_unlink("/xkacka00.worker_available");
     sem_unlink("/xkacka00.post_open");
 
-    munmap(shared_memo, sizeof(int));
+    munmap(Memo, sizeof(int));
     shm_unlink("/xkacka00.memo");
 
-    close(Memo);
+    close(shared_memo);
     fclose(output);
+}
+
+void createCustomer(person_t){
+    
 }
 
 int main(int argc, char *argv[]){
 
     //validate arguments 
-    ArgVal(argc, *argv);
+    ArgVal(argc, argv);
 
     //arguments 
     customer_quantity = atoi(argv[1]);
@@ -175,6 +179,48 @@ int main(int argc, char *argv[]){
     customer_wait_time = atoi(argv[3]);
     worker_break = atoi(argv[4]);
     post_open_time = atoi(argv[5]);
+
+    //person struct init
+    person_t person;
+
+    initMemo();
+    initSemaphores();
+    OpenFile();
+
+    //making workers processes 
+    for ( int workerID = 1; workerID <= workers_quantity; workerID++)
+    {
+        person.type = "worker";
+        person.id = workerID;
+
+        //create subproces
+        pid_t worker = fork();
+        if (worker < 0){
+            ExitWithError(PROCESS_CREATION_FAILED);
+        }
+        if (worker == 0){
+            createWorker(&person);
+            return GOOD;
+        }
+
+    }
+
+    for (int customerID = 1; customerID <= customer_quantity; customerID++){
+        person.type = "customer";
+        person.id = customerID;
+
+        //create process
+        pid_t customer = fork();
+
+        if (customer < 0){
+            ExitWithError(PROCESS_CREATION_FAILED);
+        }
+        if (customer == 0){
+            createCustomer(&person);
+            return GOOD;
+        }
+    }
+
 
 
 

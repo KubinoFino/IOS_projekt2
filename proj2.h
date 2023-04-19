@@ -37,6 +37,12 @@ sem_t *waiting_customer;
 sem_t *worker_available;
 sem_t *post_open;
 
+// person struct
+typedef struct person {
+    int id;
+    char type;
+} person_t;
+
 // arguments
 
 int customer_quantity;
@@ -60,3 +66,12 @@ Memo_t *Memo;
 int shared_memo;
 
 
+void ArgVal(int argc, char *argv[]);
+void isAllDigits(int argc, char *argv[]);
+void ErrorMessage(int errorCode);
+void ExitWithError(int ErrorCode);
+void initSemaphores();
+void initMemo();
+void OpenFile();
+void ClearEverything();
+int main(int argc, char *argv[]);
