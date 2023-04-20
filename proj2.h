@@ -53,6 +53,7 @@ int customer_wait_time;
 int worker_break;
 int post_open_time;
 
+
 typedef struct Memo {
     int customer_count;
     int worker_count;
@@ -60,6 +61,7 @@ typedef struct Memo {
     int package_queue_count;
     int finance_queue_count;
     int output_lines;
+    bool office_open;
 } Memo_t ;
 
 //postoffice open hours 
