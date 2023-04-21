@@ -88,7 +88,6 @@ void ErrorMessage(int errorCode){
 }
 
 void ExitWithError(int ErrorCode){
-    ClearEverything();
     ErrorMessage(ErrorCode);
     exit(1);
 }
@@ -111,20 +110,37 @@ void initSemaphores(){
     post_open = sem_open("/xkacka00.post_open", O_CREAT | O_EXCL, 0666, 0);
 
     if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || waiting_customers == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
+        ClearMemo();
+        ClearSemaphore();
         ExitWithError(CREATING_SEMAPHORE_FAILED);
     }
 }
 
 void initMemo(){
+    printf("in mem\n");
     shared_memo = shm_open("/xkacka00.memo", O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR );
+    printf("som za vytvorenim\n");
     if (shared_memo == -1){
-        ExitWithError(CREATING_SHARED_MEMO_FAILED);
+        if (errno == EEXIST){
+            ClearMemo();
+            shared_memo = shm_open("/xkacka00.memo", O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR );
+            if (shared_memo == -1){
+                ExitWithError(CREATING_SHARED_MEMO_FAILED);
+            }
+        }else{
+            ExitWithError(CREATING_SHARED_MEMO_FAILED);
+        }
+        
     }
+    printf("shm_open\n");
     ftruncate(shared_memo, sizeof(Memo_t));
+    printf("ftrunc\n");
     Memo = mmap(NULL, sizeof(Memo_t), PROT_READ | PROT_WRITE, MAP_SHARED, shared_memo, 0);
     if (Memo == MAP_FAILED){
+        ClearMemo();
         ExitWithError(CREATING_SHARED_MEMO_FAILED);
     }
+    printf("mmap\n");
 
     // Memo init
     Memo->customer_count = customer_quantity;
@@ -134,17 +150,27 @@ void initMemo(){
     Memo->package_queue_count = 0;
     Memo->worker_count = workers_quantity;
     Memo->office_open = true;
+    printf("data\n");
+    return;
 }
 
 void OpenFile(){
     output = fopen("proj2.out", "w+");
     if(output == NULL || ferror(output)) {
+        ClearMemo();
+        ClearSemaphore();
         ErrorMessage(FILE_OPENING_FAILED);
     }
     setbuf(output, NULL);
 }
 
 void ClearEverything(){
+    ClearSemaphore();
+    ClearMemo();
+    fclose(output);
+}
+
+void ClearSemaphore(){
     sem_close(writer);
     sem_close(letter_line);
     sem_close(finance_line);
@@ -160,12 +186,12 @@ void ClearEverything(){
     sem_unlink("/xkacka00.waiting_customer");
     sem_unlink("/xkacka00.worker_available");
     sem_unlink("/xkacka00.post_open");
+}
 
+void ClearMemo(){
     munmap(Memo, sizeof(int));
     shm_unlink("/xkacka00.memo");
-
     close(shared_memo);
-    fclose(output);
 }
 
 void createCustomer(person_t* person){            
@@ -256,6 +282,8 @@ void createCustomer(person_t* person){
 }
 
 void createWorker(person_t* person){
+
+    //what does this do? worker is in without wait
     sem_wait(post_open);
 
     srand(time(NULL) ^ getpid());
@@ -267,9 +295,9 @@ void createWorker(person_t* person){
     sem_post(writer);
 
     while (1) {
-        sem_wait(writer);
-        fprintf(output , "%d , %d, %d\n", Memo->finance_queue_count, Memo->letter_queue_count, Memo->package_queue_count);
-        sem_post(writer);
+        // sem_wait(writer);
+        // fprintf(output , "%d , %d, %d\n", Memo->finance_queue_count, Memo->letter_queue_count, Memo->package_queue_count);
+        // sem_post(writer);
         if((Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0) && Memo->office_open == true){
             sem_wait(writer);
             fprintf(output, "%d: U %d: taking a break\n", ++Memo->output_lines, person->id);
@@ -281,9 +309,9 @@ void createWorker(person_t* person){
             fprintf(output, "%d: U %d: finished break\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             continue;
-        }else {}
+        }
 
-        if ((Memo->finance_queue_count == 0 && Memo->letter_queue_count == 0 && Memo->package_queue_count == 0) && Memo->office_open == false){
+        if ((Memo->finance_queue_count == 0 && Memo->letter_queue_count == 0 && Memo->package_queue_count <= 0) && Memo->office_open == false){
             sem_wait(writer);
             fprintf(output, "%d: U %d: going home\n", ++Memo->output_lines, person->id);
             sem_post(writer);
@@ -291,10 +319,10 @@ void createWorker(person_t* person){
         }
 
         randomNumberWorker = 0;
-        sem_wait(writer);
-        fprintf(output ,"worker random %d",randomNumberWorker);
-        semo_post(writer);
-        
+        // sem_wait(writer);
+        // fprintf(output ,"worker random %d",randomNumberWorker);
+        // sem_post(writer);
+
 
         if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0){
            //fprintf(output, "som tu ???\n");
@@ -358,6 +386,7 @@ void createWorker(person_t* person){
                     sem_post(writer);
                     break;
             }
+            randomNumberWorker = 0;
         }
     } ;
 
@@ -382,10 +411,13 @@ int main(int argc, char *argv[]){
 
     //person struct init
     person_t person;
-    
+    printf("before mem\n");
     initMemo();
+    printf("after mem\n");
     initSemaphores();
+    printf("after sem open\n");
     OpenFile();
+    printf("after file open\n");
 
     
     //making workers processes 
@@ -402,6 +434,7 @@ int main(int argc, char *argv[]){
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (worker == 0){
+            printf("making worker %d\n", person.id);
             createWorker(&person);
             //exit(0);
         }
@@ -421,9 +454,10 @@ int main(int argc, char *argv[]){
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (customer == 0){
+            printf("making cus %d\n", person.id);
             createCustomer(&person);
             //exit(0);
-        }
+        } 
     }
     int low_interval = post_open_time / 2;
     int random_time = (rand() % (post_open_time - low_interval + 1)) + low_interval;
@@ -433,14 +467,15 @@ int main(int argc, char *argv[]){
     }
     
     usleep(1000 * random_time);
-    Memo->office_open = false;
-    
     sem_wait(writer);
+    Memo->office_open = false;
     fprintf(output, "%d: closing\n", ++Memo->output_lines);
     sem_post(writer);
 
-    while(wait(NULL) > 0)
-        continue;
+    while(wait(NULL) > 0){
+         continue;
+    }
+       
     
     ClearEverything();
 

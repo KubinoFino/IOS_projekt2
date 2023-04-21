@@ -81,4 +81,6 @@ void initSemaphores();
 void initMemo();
 void OpenFile();
 void ClearEverything();
+void ClearMemo();
+void ClearSemaphore();
 int main(int argc, char *argv[]);
