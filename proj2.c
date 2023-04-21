@@ -194,33 +194,6 @@ void ClearMemo(){
     close(shared_memo);
 }
 
-// void CustomerWork(sem_t* semaphore, int line, person_t* person){
-//     sem_wait(writer);
-//     if(!Memo->office_open){
-//         fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
-//         sem_post(writer);
-//         exit(0);
-//     }
-//     fprintf(output, "%d: Z %d: entering office for a service of type 1\n", ++Memo->output_lines, person->id);
-//     sem_post(writer);
-//     Memo->letter_queue_count++;
-
-//     sem_wait(letter_line);
-
-//     sem_wait(writer);
-//     fprintf(output, "%d: Z %d: called by office worker\n", ++Memo->output_lines, person->id);
-//     sem_post(writer);
-    
-
-//     usleep((rand() % 10)  * 1000);
-
-//     sem_wait(writer);
-//     fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
-//     sem_post(writer);
-
-//     exit(0);
-// }
-
 void createCustomer(person_t* person){            
 
     sem_wait(writer);
@@ -322,23 +295,15 @@ void createCustomer(person_t* person){
 
         exit(0);
     }
-
-
 }
+
 void WorkerWork (sem_t* semaphore, int line, person_t* person){
     sem_wait(writer);
     fprintf(output, "%d: U %d: serving a service of type %d\n", ++Memo->output_lines, person->id, line);
     sem_post(writer);
 
     sem_post(semaphore);
-    // if (line == 1){
-    //     Memo->letter_queue_count--;
-    // }else if(line == 2){
-    //     Memo->package_queue_count--;
-    // }else if(line == 3){
-    //     Memo->finance_queue_count--;
-    // }
-    
+  
     usleep((rand() % 10) * 1000);
 
     sem_wait(writer);
@@ -350,15 +315,13 @@ void createWorker(person_t* person){
 
     srand(time(NULL) ^ getpid());
     
-
     int randomNumberWorker;
     sem_wait(writer);
     fprintf(output, "%d: U %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
     sem_post(post_open);
     while (1) {
-        //printf("prechadzam tadeto\n");
-        //printf("%d, %d, %d", Memo->letter_queue_count, Memo->package_queue_count, Memo->finance_queue_count);
+
         if((Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0) && Memo->office_open == true){
             sem_wait(writer);
             fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
@@ -447,17 +410,12 @@ int main(int argc, char *argv[]){
     //validate arguments 
     ArgVal(argc, argv);
 
-
-
-
     //arguments 
     customer_quantity = atoi(argv[1]);
     workers_quantity = atoi(argv[2]);
     customer_wait_time = atoi(argv[3]);
     worker_break = atoi(argv[4]);
     post_open_time = atoi(argv[5]);
-
-    
 
     //person struct init
     person_t person;
@@ -526,7 +484,6 @@ int main(int argc, char *argv[]){
          continue;
     }
        
-    
     ClearEverything();
 
     exit(0);
