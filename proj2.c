@@ -194,14 +194,44 @@ void ClearMemo(){
     close(shared_memo);
 }
 
+// void CustomerWork(sem_t* semaphore, int line, person_t* person){
+//     sem_wait(writer);
+//     if(!Memo->office_open){
+//         fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
+//         sem_post(writer);
+//         exit(0);
+//     }
+//     fprintf(output, "%d: Z %d: entering office for a service of type 1\n", ++Memo->output_lines, person->id);
+//     sem_post(writer);
+//     Memo->letter_queue_count++;
+
+//     sem_wait(letter_line);
+
+//     sem_wait(writer);
+//     fprintf(output, "%d: Z %d: called by office worker\n", ++Memo->output_lines, person->id);
+//     sem_post(writer);
+    
+
+//     usleep((rand() % 10)  * 1000);
+
+//     sem_wait(writer);
+//     fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
+//     sem_post(writer);
+
+//     exit(0);
+// }
+
 void createCustomer(person_t* person){            
-    sem_wait(post_open);
 
     sem_wait(writer);
     fprintf(output, "%d: Z %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
 
-    usleep(1000 * (rand() % customer_wait_time));
+    sem_post(post_open);
+
+    if (customer_wait_time != 0){
+        usleep(1000 * (rand() % customer_wait_time));
+    }
 
     if(Memo->office_open){
         int randomNumCustomer = 3;
@@ -214,7 +244,7 @@ void createCustomer(person_t* person){
                 sem_post(writer);
                 exit(0);
             }
-            fprintf(output, "%d: Z %d: entering office for a service type 1\n", ++Memo->output_lines, person->id);
+            fprintf(output, "%d: Z %d: entering office for a service 1\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->letter_queue_count++;
 
@@ -239,7 +269,7 @@ void createCustomer(person_t* person){
                 sem_post(writer);
                 exit(0);
             }
-            fprintf(output, "%d: Z %d: entering office for a service type 2\n", ++Memo->output_lines, person->id);
+            fprintf(output, "%d: Z %d: entering office for a service 2\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->package_queue_count++;
 
@@ -264,7 +294,7 @@ void createCustomer(person_t* person){
                 sem_post(writer);
                 exit(0);
             }
-            fprintf(output, "%d: Z %d: entering office for a service type 3\n", ++Memo->output_lines, person->id);
+            fprintf(output, "%d: Z %d: entering office for a service 3\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->finance_queue_count++;
 
@@ -295,11 +325,28 @@ void createCustomer(person_t* person){
 
 
 }
+void WorkerWork (sem_t* semaphore, int line, person_t* person){
+    sem_wait(writer);
+    fprintf(output, "%d: U %d: serving a service of type %d\n", ++Memo->output_lines, person->id, line);
+    sem_post(writer);
+
+    sem_post(semaphore);
+    // if (line == 1){
+    //     Memo->letter_queue_count--;
+    // }else if(line == 2){
+    //     Memo->package_queue_count--;
+    // }else if(line == 3){
+    //     Memo->finance_queue_count--;
+    // }
+    
+    usleep((rand() % 10) * 1000);
+
+    sem_wait(writer);
+    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
+    sem_post(writer);
+}
 
 void createWorker(person_t* person){
-
-    //what does this do? worker is in without wait
-    sem_wait(post_open);
 
     srand(time(NULL) ^ getpid());
     
@@ -308,25 +355,26 @@ void createWorker(person_t* person){
     sem_wait(writer);
     fprintf(output, "%d: U %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
-
+    sem_post(post_open);
     while (1) {
-        // sem_wait(writer);
-        // fprintf(output , "%d , %d, %d\n", Memo->finance_queue_count, Memo->letter_queue_count, Memo->package_queue_count);
-        // sem_post(writer);
+        //printf("prechadzam tadeto\n");
+        //printf("%d, %d, %d", Memo->letter_queue_count, Memo->package_queue_count, Memo->finance_queue_count);
         if((Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0) && Memo->office_open == true){
             sem_wait(writer);
-            fprintf(output, "%d: U %d: taking a break\n", ++Memo->output_lines, person->id);
+            fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
             sem_post(writer);
 
-            usleep(1000 * (rand() % worker_break));
+            if(worker_break != 0){
+                usleep(1000 * (rand() % worker_break));
+            }
 
             sem_wait(writer);
-            fprintf(output, "%d: U %d: finished break\n", ++Memo->output_lines, person->id);
+            fprintf(output, "%d: U %d: break finished\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             continue;
         }
 
-        if ((Memo->finance_queue_count == 0 && Memo->letter_queue_count == 0 && Memo->package_queue_count <= 0) && Memo->office_open == false){
+        if ((Memo->finance_queue_count == 0 && Memo->letter_queue_count == 0 && Memo->package_queue_count == 0) && Memo->office_open == false){
             sem_wait(writer);
             fprintf(output, "%d: U %d: going home\n", ++Memo->output_lines, person->id);
             sem_post(writer);
@@ -334,71 +382,58 @@ void createWorker(person_t* person){
         }
 
         randomNumberWorker = 0;
-        // sem_wait(writer);
-        // fprintf(output ,"worker random %d",randomNumberWorker);
-        // sem_post(writer);
-
-
+        
         if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0){
-           //fprintf(output, "som tu ???\n");
             randomNumberWorker = 1;
+            Memo->letter_queue_count--;
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = 2;
+            Memo->package_queue_count--;
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = 3;
+            Memo->finance_queue_count--;
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = (1 + rand() % (2 - 1 + 1));
+            if(randomNumberWorker == 1){
+                Memo->letter_queue_count--;
+            }else if(randomNumberWorker == 2){
+                Memo->package_queue_count--;
+            }
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = (1 + rand() % (3 - 1 + 1));
+            if(randomNumberWorker == 1){
+                Memo->letter_queue_count--;
+            }else if(randomNumberWorker == 3){
+                Memo->finance_queue_count--;
+            }
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = (2 + rand() % (3 - 2 + 1));
+            if(randomNumberWorker == 2){
+                Memo->package_queue_count--;
+            }else if(randomNumberWorker == 3){
+                Memo->finance_queue_count--;
+            }
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = ((rand() % 3) + 1);
+            if(randomNumberWorker == 1){
+                Memo->letter_queue_count--;
+            }else if(randomNumberWorker == 2){
+                Memo->package_queue_count--;
+            }else if(randomNumberWorker == 3){
+                Memo->finance_queue_count--;
+            }
         }
 
         if(randomNumberWorker != 0){
             switch(randomNumberWorker){
                 case 1:
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: serving a service type 1\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
-
-                    sem_post(letter_line);
-                    Memo->letter_queue_count--;
-
-                    usleep((rand() % 10) * 1000);
-
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
+                    WorkerWork(letter_line, 1, person);
                     break;
                 case 2:
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: serving a service type 2\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
-
-                    sem_post(package_line);
-                    Memo->package_queue_count--;
-
-                    usleep((rand() % 10) * 1000);
-
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
+                    WorkerWork(package_line, 2, person);
                     break;
                 case 3:
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: serving a service type 3\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
-
-                    sem_post(finance_line);
-                    Memo->finance_queue_count--;
-
-                    usleep((rand() % 10) * 1000);
-
-                    sem_wait(writer);
-                    fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
-                    sem_post(writer);
+                    WorkerWork(finance_line, 3, person);
                     break;
             }
             randomNumberWorker = 0;
@@ -478,7 +513,7 @@ int main(int argc, char *argv[]){
     int random_time = (rand() % (post_open_time - low_interval + 1)) + low_interval;
     
     for (int i = 0; i < (workers_quantity + customer_quantity); i++) {
-        sem_post(post_open); // Wait for the semaphore to be signaled
+        sem_wait(post_open); 
     }
     
     usleep(1000 * random_time);
