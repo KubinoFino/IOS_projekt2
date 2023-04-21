@@ -209,6 +209,11 @@ void createCustomer(person_t* person){
         switch (rand() % randomNumCustomer) {
         case 0:
             sem_wait(writer);
+            if(!Memo->office_open){
+                fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
+                sem_post(writer);
+                exit(0);
+            }
             fprintf(output, "%d: Z %d: entering office for a service type 1\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->letter_queue_count++;
@@ -229,6 +234,11 @@ void createCustomer(person_t* person){
             exit(0);
         case 1:
             sem_wait(writer);
+            if(!Memo->office_open){
+                fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
+                sem_post(writer);
+                exit(0);
+            }
             fprintf(output, "%d: Z %d: entering office for a service type 2\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->package_queue_count++;
@@ -249,6 +259,11 @@ void createCustomer(person_t* person){
         case 2:
             
             sem_wait(writer);
+            if(!Memo->office_open){
+                fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
+                sem_post(writer);
+                exit(0);
+            }
             fprintf(output, "%d: Z %d: entering office for a service type 3\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->finance_queue_count++;
