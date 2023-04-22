@@ -1,5 +1,21 @@
+/**
+ * @file proj2.c
+ * @author Jakub Kačka (xkacka00@stud.fit.vutbr.cz)
+ * @brief Implementation of project 2 for IOS
+ * @date 2023-04-22
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
 #include "proj2.h"
 
+/**
+ * @brief Function for validating arguments
+ * 
+ * @param argc 
+ * @param argv 
+ */
 void ArgVal(int argc, char *argv[]){
     
     if(argc < 6){
@@ -10,7 +26,7 @@ void ArgVal(int argc, char *argv[]){
         ExitWithError(TOO_MANY_ARGUMENTS);
     }
 
-    if(atoi(argv[1]) < 1){
+    if(atoi(argv[1]) < 0){
         ExitWithError(FALSE_VALUE);
     }
 
@@ -33,6 +49,12 @@ void ArgVal(int argc, char *argv[]){
     isAllDigits(argc, argv);
 }
 
+/**
+ * @brief Function for checking if all arguments are digits
+ * 
+ * @param argc 
+ * @param argv 
+ */
 void isAllDigits(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
         for (int j = 0; argv[i][j]; j++) {
@@ -43,10 +65,18 @@ void isAllDigits(int argc, char *argv[]) {
     }
 }
 
+/**
+ * @brief Function for printing error message
+ * 
+ * @param errorCode 
+ */
 void ErrorMessage(int errorCode){
-    fprintf(stderr, "\033[0;31m"); // Change color to red
-    fprintf(stderr, "%s ", "ERROR:"); // Write error in red
-    fprintf(stderr, "\033[0m"); // Change color back to default
+
+    //changing color of text to red
+    fprintf(stderr, "\033[0;31m"); 
+    fprintf(stderr, "%s ", "ERROR:");
+    fprintf(stderr, "\033[0m"); 
+
     switch (errorCode)
     {
     case FALSE_VALUE:
@@ -92,34 +122,36 @@ void ExitWithError(int ErrorCode){
     exit(1);
 }
 
+/**
+ * @brief Function for initializing semaphores
+ * 
+ */
 void initSemaphores(){
     sem_unlink("/xkacka00.writer");
     sem_unlink("/xkacka00.letter_line");
     sem_unlink("/xkacka00.package_line");
     sem_unlink("/xkacka00.finance_line");
-    sem_unlink("/xkacka00.waiting_customer");
-    sem_unlink("/xkacka00.worker_available");
     sem_unlink("/xkacka00.post_open");
 
     writer = sem_open("/xkacka00.writer", O_CREAT | O_EXCL, 0666, 1);
     letter_line = sem_open("/xkacka00.letter_line", O_CREAT | O_EXCL, 0666, 0);
     package_line = sem_open("/xkacka00.package_line", O_CREAT | O_EXCL, 0666, 0);
     finance_line = sem_open("/xkacka00.finance_line", O_CREAT | O_EXCL, 0666, 0);
-    waiting_customers = sem_open("/xkacka00.waiting_customer", O_CREAT | O_EXCL, 0666, 1);
-    worker_available = sem_open("/xkacka00.worker_available", O_CREAT | O_EXCL, 0666, 0);
     post_open = sem_open("/xkacka00.post_open", O_CREAT | O_EXCL, 0666, 0);
 
-    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || waiting_customers == SEM_FAILED || worker_available == SEM_FAILED || post_open == SEM_FAILED){
+    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || post_open == SEM_FAILED){
         ClearMemo();
         ClearSemaphore();
         ExitWithError(CREATING_SEMAPHORE_FAILED);
     }
 }
 
+/**
+ * @brief Function for initializing shared memory
+ * 
+ */
 void initMemo(){
-    printf("in mem\n");
     shared_memo = shm_open("/xkacka00.memo", O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR );
-    printf("som za vytvorenim\n");
     if (shared_memo == -1){
         if (errno == EEXIST){
             ClearMemo();
@@ -130,19 +162,15 @@ void initMemo(){
         }else{
             ExitWithError(CREATING_SHARED_MEMO_FAILED);
         }
-        
     }
-    printf("shm_open\n");
     ftruncate(shared_memo, sizeof(Memo_t));
-    printf("ftrunc\n");
     Memo = mmap(NULL, sizeof(Memo_t), PROT_READ | PROT_WRITE, MAP_SHARED, shared_memo, 0);
     if (Memo == MAP_FAILED){
         ClearMemo();
         ExitWithError(CREATING_SHARED_MEMO_FAILED);
     }
-    printf("mmap\n");
 
-    // Memo init
+    // Memo values initialization
     Memo->customer_count = customer_quantity;
     Memo->finance_queue_count = 0;
     Memo->letter_queue_count = 0;
@@ -150,10 +178,13 @@ void initMemo(){
     Memo->package_queue_count = 0;
     Memo->worker_count = workers_quantity;
     Memo->office_open = true;
-    printf("data\n");
     return;
 }
 
+/**
+ * @brief Function for opening output file
+ * 
+ */
 void OpenFile(){
     output = fopen("proj2.out", "w+");
     if(output == NULL || ferror(output)) {
@@ -164,63 +195,83 @@ void OpenFile(){
     setbuf(output, NULL);
 }
 
+/**
+ * @brief Function to clear every resource
+ * 
+ */
 void ClearEverything(){
     ClearSemaphore();
     ClearMemo();
     fclose(output);
 }
 
+/**
+ * @brief Function to clear semaphores
+ * 
+ */
 void ClearSemaphore(){
     sem_close(writer);
     sem_close(letter_line);
     sem_close(finance_line);
     sem_close(package_line);
-    sem_close(waiting_customers);
-    sem_close(worker_available);
     sem_close(post_open);
 
     sem_unlink("/xkacka00.writer");
     sem_unlink("/xkacka00.letter_line");
     sem_unlink("/xkacka00.package_line");
     sem_unlink("/xkacka00.finance_line");
-    sem_unlink("/xkacka00.waiting_customer");
-    sem_unlink("/xkacka00.worker_available");
     sem_unlink("/xkacka00.post_open");
 }
 
+/**
+ * @brief Function to clear shared memory
+ * 
+ */
 void ClearMemo(){
     munmap(Memo, sizeof(int));
     shm_unlink("/xkacka00.memo");
     close(shared_memo);
 }
 
+/**
+ * @brief Function to create customer process
+ * 
+ * @param person 
+ */
 void createCustomer(person_t* person){            
 
+    // starting customer process
     sem_wait(writer);
     fprintf(output, "%d: Z %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
 
+    //waiting for subprocesses to start
     sem_post(post_open);
 
+    //random time to wait before entering office
     if (customer_wait_time != 0){
         usleep(1000 * (rand() % customer_wait_time));
     }
 
+    //if office is open process enters office
     if(Memo->office_open){
         int randomNumCustomer = 3;
 
         switch (rand() % randomNumCustomer) {
         case 0:
             sem_wait(writer);
+            //if office closed while process came to office it goes home
             if(!Memo->office_open){
                 fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
                 sem_post(writer);
                 exit(0);
             }
+            //else it enters office
             fprintf(output, "%d: Z %d: entering office for a service 1\n", ++Memo->output_lines, person->id);
             sem_post(writer);
             Memo->letter_queue_count++;
 
+            // wait for office worker to call customer
             sem_wait(letter_line);
 
             sem_wait(writer);
@@ -230,6 +281,7 @@ void createCustomer(person_t* person){
 
             usleep((rand() % 10)  * 1000);
 
+            //after service is done customer leaves office
             sem_wait(writer);
             fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
             sem_post(writer);
@@ -289,6 +341,7 @@ void createCustomer(person_t* person){
             ExitWithError(WRONG_RANDOM_NUMBER);
         }
     }else{
+        //if office is closed customer goes home
         sem_wait(writer);
         fprintf(output, "%d: Z %d: going home\n", ++Memo->output_lines, person->id);
         sem_post(writer);
@@ -297,15 +350,24 @@ void createCustomer(person_t* person){
     }
 }
 
+/**
+ * @brief Function to create worker process
+ * 
+ * @param person 
+ */
 void WorkerWork (sem_t* semaphore, int line, person_t* person){
+
+    //worker going to selected line
     sem_wait(writer);
     fprintf(output, "%d: U %d: serving a service of type %d\n", ++Memo->output_lines, person->id, line);
     sem_post(writer);
 
+    //worker calling customer from the line
     sem_post(semaphore);
   
     usleep((rand() % 10) * 1000);
 
+    //worker finishes service and goes to another line if needed
     sem_wait(writer);
     fprintf(output, "%d: U %d: service finished\n", ++Memo->output_lines, person->id);
     sem_post(writer);
@@ -316,12 +378,17 @@ void createWorker(person_t* person){
     srand(time(NULL) ^ getpid());
     
     int randomNumberWorker;
+    
+    //worker process starts
     sem_wait(writer);
     fprintf(output, "%d: U %d: started\n", ++Memo->output_lines, person->id);
     sem_post(writer);
+
+    //waiting for subprocesses to start
     sem_post(post_open);
     while (1) {
 
+        //if office is open and lines are empty worker takes a break
         if((Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0) && Memo->office_open == true){
             sem_wait(writer);
             fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
@@ -337,6 +404,7 @@ void createWorker(person_t* person){
             continue;
         }
 
+        //if office is closed and lines are empty worker goes home
         if ((Memo->finance_queue_count == 0 && Memo->letter_queue_count == 0 && Memo->package_queue_count == 0) && Memo->office_open == false){
             sem_wait(writer);
             fprintf(output, "%d: U %d: going home\n", ++Memo->output_lines, person->id);
@@ -346,6 +414,7 @@ void createWorker(person_t* person){
 
         randomNumberWorker = 0;
         
+        //if office is open and lines are not empty worker chooses line
         if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = 1;
             Memo->letter_queue_count--;
@@ -387,6 +456,7 @@ void createWorker(person_t* person){
             }
         }
 
+        //worker goes to picked line and do his job
         if(randomNumberWorker != 0){
             switch(randomNumberWorker){
                 case 1:
@@ -406,11 +476,18 @@ void createWorker(person_t* person){
     
 }
 
+/**
+ * @brief Main function
+ * 
+ * @param argc 
+ * @param argv 
+ * @return int 
+ */
 int main(int argc, char *argv[]){
     //validate arguments 
     ArgVal(argc, argv);
 
-    //arguments 
+    //parsing arguments into variables
     customer_quantity = atoi(argv[1]);
     workers_quantity = atoi(argv[2]);
     customer_wait_time = atoi(argv[3]);
@@ -419,13 +496,13 @@ int main(int argc, char *argv[]){
 
     //person struct init
     person_t person;
-    printf("before mem\n");
+
+    //init resources
     initMemo();
-    printf("after mem\n");
     initSemaphores();
-    printf("after sem open\n");
+
+    //open output file
     OpenFile();
-    printf("after file open\n");
 
     
     //making workers processes 
@@ -442,9 +519,7 @@ int main(int argc, char *argv[]){
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (worker == 0){
-            printf("making worker %d\n", person.id);
             createWorker(&person);
-            //exit(0);
         }
 
     }
@@ -462,28 +537,30 @@ int main(int argc, char *argv[]){
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (customer == 0){
-            printf("making cus %d\n", person.id);
             createCustomer(&person);
-            //exit(0);
         } 
     }
     int low_interval = post_open_time / 2;
     int random_time = (rand() % (post_open_time - low_interval + 1)) + low_interval;
     
+    //wait for all processes to be created
     for (int i = 0; i < (workers_quantity + customer_quantity); i++) {
         sem_wait(post_open); 
     }
     
+    //wait for random time in interval <post_open_time/2, post_open_time> to close office
     usleep(1000 * random_time);
     sem_wait(writer);
     Memo->office_open = false;
     fprintf(output, "%d: closing\n", ++Memo->output_lines);
     sem_post(writer);
 
+    //wait for all processes to finish
     while(wait(NULL) > 0){
          continue;
     }
-       
+    
+    //clear all resources
     ClearEverything();
 
     exit(0);

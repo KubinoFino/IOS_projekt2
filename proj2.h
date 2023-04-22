@@ -13,9 +13,9 @@
 #include <string.h>
 #include <ctype.h>
 
-
 #define WORKER 'W'
 #define CUSTOMER 'C'
+
 // Errors
 enum Errors {
     ERROR = -1,
@@ -53,7 +53,7 @@ int customer_wait_time;
 int worker_break;
 int post_open_time;
 
-
+//shared memory
 typedef struct Memo {
     int customer_count;
     int worker_count;
@@ -83,4 +83,7 @@ void OpenFile();
 void ClearEverything();
 void ClearMemo();
 void ClearSemaphore();
+void createWorker(person_t* person);
+void WorkerWork (sem_t* semaphore, int line, person_t* person);
+void createCustomer(person_t* person);
 int main(int argc, char *argv[]);
