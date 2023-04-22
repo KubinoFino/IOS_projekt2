@@ -516,6 +516,7 @@ int main(int argc, char *argv[]){
         srand(time(NULL) ^ getpid());
 
         if (worker < 0){
+            ClearEverything();
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (worker == 0){
@@ -534,6 +535,7 @@ int main(int argc, char *argv[]){
         srand(time(NULL) ^ getpid());
 
         if (customer < 0){
+            ClearEverything();
             ExitWithError(PROCESS_CREATION_FAILED);
         }
         if (customer == 0){
