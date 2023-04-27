@@ -1,3 +1,13 @@
+/**
+ * @file proj2.c
+ * @author Jakub Kačka (xkacka00@stud.fit.vutbr.cz)
+ * @brief Implementation of project 2 for IOS
+ * @date 2023-04-22
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -37,7 +47,7 @@ sem_t *letter_line;
 sem_t *package_line;
 sem_t *finance_line;
 sem_t *waiting_customers;
-sem_t *worker_available;
+sem_t *picker;
 sem_t *post_open;
 
 // person struct
@@ -55,11 +65,10 @@ int post_open_time;
 
 //shared memory
 typedef struct Memo {
-    int customer_count;
-    int worker_count;
     int letter_queue_count;
     int package_queue_count;
     int finance_queue_count;
+    int office_count;
     int output_lines;
     bool office_open;
 } Memo_t ;

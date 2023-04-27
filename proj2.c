@@ -132,14 +132,16 @@ void initSemaphores(){
     sem_unlink("/xkacka00.package_line");
     sem_unlink("/xkacka00.finance_line");
     sem_unlink("/xkacka00.post_open");
+    sem_unlink("/xkacka00.picker");
 
     writer = sem_open("/xkacka00.writer", O_CREAT | O_EXCL, 0666, 1);
     letter_line = sem_open("/xkacka00.letter_line", O_CREAT | O_EXCL, 0666, 0);
     package_line = sem_open("/xkacka00.package_line", O_CREAT | O_EXCL, 0666, 0);
     finance_line = sem_open("/xkacka00.finance_line", O_CREAT | O_EXCL, 0666, 0);
     post_open = sem_open("/xkacka00.post_open", O_CREAT | O_EXCL, 0666, 0);
+    picker = sem_open("/xkacka00.picker", O_CREAT | O_EXCL, 0666, 1);
 
-    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || post_open == SEM_FAILED){
+    if (writer == SEM_FAILED || letter_line == SEM_FAILED || package_line == SEM_FAILED || finance_line == SEM_FAILED || post_open == SEM_FAILED || picker == SEM_FAILED){
         ClearMemo();
         ClearSemaphore();
         ExitWithError(CREATING_SEMAPHORE_FAILED);
@@ -171,12 +173,11 @@ void initMemo(){
     }
 
     // Memo values initialization
-    Memo->customer_count = customer_quantity;
     Memo->finance_queue_count = 0;
     Memo->letter_queue_count = 0;
     Memo->output_lines = 0;
     Memo->package_queue_count = 0;
-    Memo->worker_count = workers_quantity;
+    Memo->office_count = 0;
     Memo->office_open = true;
     return;
 }
@@ -215,12 +216,14 @@ void ClearSemaphore(){
     sem_close(finance_line);
     sem_close(package_line);
     sem_close(post_open);
+    sem_close(picker);
 
     sem_unlink("/xkacka00.writer");
     sem_unlink("/xkacka00.letter_line");
     sem_unlink("/xkacka00.package_line");
     sem_unlink("/xkacka00.finance_line");
     sem_unlink("/xkacka00.post_open");
+    sem_unlink("/xkacka00.picker");
 }
 
 /**
@@ -269,6 +272,7 @@ void createCustomer(person_t* person){
             //else it enters office
             fprintf(output, "%d: Z %d: entering office for a service 1\n", ++Memo->output_lines, person->id);
             sem_post(writer);
+            Memo->office_count++;
             Memo->letter_queue_count++;
 
             // wait for office worker to call customer
@@ -296,6 +300,7 @@ void createCustomer(person_t* person){
             }
             fprintf(output, "%d: Z %d: entering office for a service 2\n", ++Memo->output_lines, person->id);
             sem_post(writer);
+            Memo->office_count++;
             Memo->package_queue_count++;
 
             sem_wait(package_line);
@@ -321,6 +326,7 @@ void createCustomer(person_t* person){
             }
             fprintf(output, "%d: Z %d: entering office for a service 3\n", ++Memo->output_lines, person->id);
             sem_post(writer);
+            Memo->office_count++;
             Memo->finance_queue_count++;
 
             sem_wait(finance_line);
@@ -364,6 +370,7 @@ void WorkerWork (sem_t* semaphore, int line, person_t* person){
 
     //worker calling customer from the line
     sem_post(semaphore);
+    
   
     usleep((rand() % 10) * 1000);
 
@@ -417,63 +424,49 @@ void createWorker(person_t* person){
         //if office is open and lines are not empty worker chooses line
         if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = 1;
-            Memo->letter_queue_count--;
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = 2;
-            Memo->package_queue_count--;
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = 3;
-            Memo->finance_queue_count--;
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count == 0){
             randomNumberWorker = (1 + rand() % (2 - 1 + 1));
-            if(randomNumberWorker == 1){
-                Memo->letter_queue_count--;
-            }else if(randomNumberWorker == 2){
-                Memo->package_queue_count--;
-            }
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = (1 + rand() % (3 - 1 + 1));
-            if(randomNumberWorker == 1){
-                Memo->letter_queue_count--;
-            }else if(randomNumberWorker == 3){
-                Memo->finance_queue_count--;
-            }
         }else if(Memo->letter_queue_count == 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = (2 + rand() % (3 - 2 + 1));
-            if(randomNumberWorker == 2){
-                Memo->package_queue_count--;
-            }else if(randomNumberWorker == 3){
-                Memo->finance_queue_count--;
-            }
         }else if(Memo->letter_queue_count != 0 && Memo->package_queue_count != 0 && Memo->finance_queue_count != 0){
             randomNumberWorker = ((rand() % 3) + 1);
-            if(randomNumberWorker == 1){
-                Memo->letter_queue_count--;
-            }else if(randomNumberWorker == 2){
-                Memo->package_queue_count--;
-            }else if(randomNumberWorker == 3){
-                Memo->finance_queue_count--;
-            }
         }
 
         //worker goes to picked line and do his job
-        if(randomNumberWorker != 0){
+        if(randomNumberWorker != 0){    
+
             switch(randomNumberWorker){
                 case 1:
+                    if (Memo->letter_queue_count == 0){
+                        break;
+                    }
+                    Memo->letter_queue_count--;
                     WorkerWork(letter_line, 1, person);
                     break;
                 case 2:
+                    if (Memo->package_queue_count == 0){
+                        break;
+                    }
+                    Memo->package_queue_count--;
                     WorkerWork(package_line, 2, person);
                     break;
                 case 3:
+                    if (Memo->finance_queue_count == 0){
+                        break;
+                    }
+                    Memo->finance_queue_count--;
                     WorkerWork(finance_line, 3, person);
                     break;
             }
             randomNumberWorker = 0;
         }
-    } ;
-
-    
+    };
 }
 
 /**
