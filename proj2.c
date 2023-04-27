@@ -398,6 +398,10 @@ void createWorker(person_t* person){
         //if office is open and lines are empty worker takes a break
         if((Memo->letter_queue_count == 0 && Memo->package_queue_count == 0 && Memo->finance_queue_count == 0) && Memo->office_open == true){
             sem_wait(writer);
+            if (Memo->letter_queue_count != 0 || Memo->package_queue_count != 0 || Memo->finance_queue_count != 0){
+                sem_post(writer);
+                continue;
+            }
             fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
             sem_post(writer);
 
