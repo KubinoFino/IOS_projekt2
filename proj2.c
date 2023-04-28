@@ -402,17 +402,23 @@ void createWorker(person_t* person){
                 sem_post(writer);
                 continue;
             }
-            fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
-            sem_post(writer);
+            if (Memo->office_open != false){
+                fprintf(output, "%d: U %d: taking break\n", ++Memo->output_lines, person->id);
+                sem_post(writer);
 
-            if(worker_break != 0){
-                usleep(1000 * (rand() % worker_break));
+                if(worker_break != 0){
+                    usleep(1000 * (rand() % worker_break));
+                }
+
+                sem_wait(writer);
+                fprintf(output, "%d: U %d: break finished\n", ++Memo->output_lines, person->id);
+                sem_post(writer);
+                continue;
+            }else {
+                sem_post(writer);
+                continue;
             }
-
-            sem_wait(writer);
-            fprintf(output, "%d: U %d: break finished\n", ++Memo->output_lines, person->id);
-            sem_post(writer);
-            continue;
+            
         }
 
         //if office is closed and lines are empty worker goes home
