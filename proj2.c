@@ -418,7 +418,6 @@ void createWorker(person_t* person){
                 sem_post(writer);
                 continue;
             }
-            
         }
 
         //if office is closed and lines are empty worker goes home
